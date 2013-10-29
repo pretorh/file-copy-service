@@ -1,0 +1,24 @@
+{
+  "name": "file-copy-service",
+  "version": "0.0.0",
+  "description": "fire and forget (or retrieve) local file copying service",
+  "main": "index.js",
+  "scripts": {
+    "test": "node example/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/pretorh/file-copy-service.git"
+  },
+  "keywords": [
+    "file",
+    "copy",
+    "service",
+    "filemanagement"
+  ],
+  "author": "Hendri Pretorius",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pretorh/file-copy-service/issues"
+  }
+}
