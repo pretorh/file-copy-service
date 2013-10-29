@@ -11,7 +11,11 @@ function CopyService() {
     self.copy = function(request) {
         var id = createId();
         items[id] = new Item(request, function() {
-            
+            var dstDev = items[id].info.dst.device;
+            if (!devices[dstDev]) {
+                devices[dstDev] = new DeviceQueue(dstDev);
+            }
+            devices[dstDev].enqueue(items[id]);
         });
         return id;
     }
@@ -37,6 +41,10 @@ function Item(request, readyCallback) {
     self.setStatus = function(status, message) {
         self.info.status = status;
         self.info.message = message;
+    }
+    
+    self.work = function(callback) {
+        self.fail("not implemented");
     }
     
     function validateRequest() {
@@ -100,4 +108,31 @@ function createId() {
     return Math.floor((1 + Math.random()) * 0x100000000)
         .toString(16)
         .substring(1);
+}
+
+function DeviceQueue(devId) {
+    self = this;
+    var requestNumber = 0;
+    var queue = [];
+    
+    self.enqueue = function(item) {
+        item.info.deviceRequestNumber = requestNumber++;
+        queue.push(item);
+        if (queue.length === 1) {
+            process.nextTick(work);
+        }
+    }
+    
+    function work() {
+        var item = queue.shift();
+        item.work(function(more) {
+            if (more) {
+                queue.push(item);
+            }
+            
+            if (queue.length === 1) {
+                process.nextTick(work);
+            }
+        });
+    }
 }
