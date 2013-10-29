@@ -37,8 +37,8 @@ function CopyService() {
 function Item(request, readyCallback) {
     var self = this;
     self.info = {
-        status: "pending",
-        message: "preparing",
+        status: null,
+        message: null,
         done: false,
         history: []
     };
@@ -63,8 +63,15 @@ function Item(request, readyCallback) {
     }
     
     self.work = function(callback) {
-        self.setStatus("copy", "copy file contents");
-        process.nextTick(openRead);
+        if (self.info.status == "queue") {
+            self.setStatus("copy", "copy file contents");
+            process.nextTick(openRead);
+        } else if (self.info.status == "copy") {
+            self.setStatus("sync", "sync destination file to disk");
+            process.nextTick(sync);
+        } else {
+            workFail("no work to be done on status", self.info.status);
+        }
         
         function openRead() {
             fs.open(self.info.src.path, "r", function(err, fd) {
@@ -114,12 +121,29 @@ function Item(request, readyCallback) {
                     // write done
                     process.nextTick(function() {
                         fs.close(fds.r);
-                        fs.close(fds.w);
-                        
-                        self.setStatus("done", "all done", true);
-                        callback(false);
+                        fds.r = null;
+                        callback(true);
                     });
                 }
+            });
+        }
+        
+        function sync() {
+            fs.fsync(fds.w, function(err) {
+                if (err) {
+                    workFail("sync", err);
+                } else {
+                    fs.close(fds.w);
+                    fds.w = null;
+                    done();
+                }
+            });
+        }
+        
+        function done() {
+            process.nextTick(function() {
+                self.setStatus("done", "all done", true);
+                callback(false);
             });
         }
         
@@ -192,6 +216,7 @@ function Item(request, readyCallback) {
         totalRead: 0
     };
     
+    self.setStatus("pending", "preparing");
     process.nextTick(validateRequest);
 
 }

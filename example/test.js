@@ -2,7 +2,9 @@ var cs = require("../");
 
 var copyService = new cs.CopyService();
 
-require("fs").writeFileSync("./test.dat", "some data in the file");
+var buf = new Buffer(1024*1024*64);
+
+require("fs").writeFileSync("./test.dat", buf);
 
 var id1 = copyService.copy({
     source: "test.dat",
