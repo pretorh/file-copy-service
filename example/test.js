@@ -29,13 +29,17 @@ process.nextTick(function() {
         var stat1 = copyService.status(id1);
         var stat3 = copyService.status(id3);
         var stat4 = copyService.status(id4);
-        if (stat1.status === "pending" || stat3.status === "pending" || stat4.status === "pending") {
+        if (!stat1.done || !stat3.done || !stat4.done) {
             setTimeout(wait, 10);
-            require("fs").unlinkSync("./test.dat");
         } else {
             console.log(stat1);
             console.log(stat3);
             console.log(stat4);
+            console.log(copyService.detailed(id1));
+            require("fs").unlinkSync("./test.dat");
+            require("fs").unlinkSync("./test-copy.dat");
+            require("fs").unlinkSync("./test-copy2.dat");
+            require("fs").unlinkSync("/tmp/test-copy2.dat");
         }
     }
     

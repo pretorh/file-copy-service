@@ -1,6 +1,7 @@
 module.exports = CopyService;
 
 var fs = require("fs");
+const BUFLEN = 1024 * 1024 * 16;
 
 function CopyService() {
     var self = this;
@@ -21,6 +22,14 @@ function CopyService() {
     }
     
     self.status = function(id) {
+        return {
+            done: items[id].info.done,
+            status: items[id].info.status,
+            message: items[id].info.message
+        };
+    }
+    
+    self.detailed = function(id) {
         return items[id].info;
     }
 }
@@ -29,22 +38,100 @@ function Item(request, readyCallback) {
     var self = this;
     self.info = {
         status: "pending",
-        message: "preparing"
+        message: "preparing",
+        done: false,
+        history: []
     };
     
     self.fail = function(message, detailed) {
-        self.setStatus("failed", message);
+        self.setStatus("failed", message, true);
         if (detailed)
             self.info.detailed = detailed;
     }
     
-    self.setStatus = function(status, message) {
+    self.setStatus = function(status, message, isDone) {
         self.info.status = status;
         self.info.message = message;
+        self.info.history.push({
+            status: status,
+            date: new Date()
+        });
+        if (isDone) {
+            self.info.done = true;
+            self.info.detailed = null;
+        }
     }
     
     self.work = function(callback) {
-        self.fail("not implemented");
+        self.setStatus("copy", "copy file contents");
+        process.nextTick(openRead);
+        
+        function openRead() {
+            fs.open(self.info.src.path, "r", function(err, fd) {
+                if (err) {
+                    workFail("open source", err);
+                } else {
+                    fds.r = fd;
+                    process.nextTick(openWrite);
+                }
+            });
+        }
+        
+        function openWrite() {
+            fs.open(self.info.dst.path, "w", function(err, fd) {
+                if (err) {
+                    workFail("open destination", err);
+                } else {
+                    fds.w = fd;
+                    process.nextTick(read);
+                }
+            });
+        }
+        
+        function read() {
+            var buf = new Buffer(BUFLEN);
+            fs.read(fds.r, buf, 0, BUFLEN, null, function(err, bytesRead, buffer) {
+                if (err) {
+                    workFail("read", err);
+                } else {
+                    fds.totalRead += bytesRead;
+                    self.info.detailed = fds.totalRead + " bytes";
+                    process.nextTick(function() {
+                        write(buf, bytesRead);
+                    });
+                }
+            });
+        }
+        
+        function write(buffer, bytesRead) {
+            fs.write(fds.w, buffer, 0, bytesRead, null, function(err, bytesWritten) {
+                if (err) {
+                    workFail("write", err);
+                } else if (bytesRead === BUFLEN) {
+                    // read more
+                    process.nextTick(read);
+                } else {
+                    // write done
+                    process.nextTick(function() {
+                        fs.close(fds.r);
+                        fs.close(fds.w);
+                        
+                        self.setStatus("done", "all done", true);
+                        callback(false);
+                    });
+                }
+            });
+        }
+        
+        function workFail(step, err) {
+            self.fail(step, err);
+            if (fds.r) fs.close(fds.r);
+            if (fds.w) fs.close(fds.w);
+            
+            process.nextTick(function() {
+                callback(false);
+            });
+        }
     }
     
     function validateRequest() {
@@ -98,6 +185,12 @@ function Item(request, readyCallback) {
         self.setStatus("queue", "queued on device");
         readyCallback();
     }
+    
+    var fds = {
+        r: null,
+        w: null,
+        totalRead: 0
+    };
     
     process.nextTick(validateRequest);
 
