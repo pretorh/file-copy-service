@@ -63,17 +63,10 @@ function Item(request, readyCallback) {
     }
     
     self.work = function(callback) {
-        if (self.info.status == "queue") {
-            self.setStatus("copy", "copy file contents");
-            process.nextTick(openRead);
-        } else if (self.info.status == "copy") {
-            self.setStatus("sync", "sync destination file to disk");
-            process.nextTick(sync);
-        } else {
-            workFail("no work to be done on status", self.info.status);
-        }
+        process.nextTick(openRead);
         
         function openRead() {
+            self.setStatus("copy", "copy file contents");
             fs.open(self.info.src.path, "r", function(err, fd) {
                 if (err) {
                     workFail("open source", err);
@@ -119,32 +112,29 @@ function Item(request, readyCallback) {
                     process.nextTick(read);
                 } else {
                     // write done
-                    process.nextTick(function() {
-                        fs.close(fds.r);
-                        fds.r = null;
-                        callback(true);
-                    });
+                    fs.close(fds.r);
+                    fds.r = null;
+                    process.nextTick(sync);
                 }
             });
         }
         
         function sync() {
+            self.setStatus("sync", "sync destination file to disk");
             fs.fsync(fds.w, function(err) {
                 if (err) {
                     workFail("sync", err);
                 } else {
                     fs.close(fds.w);
                     fds.w = null;
-                    done();
+                    process.nextTick(done);
                 }
             });
         }
         
         function done() {
-            process.nextTick(function() {
-                self.setStatus("done", "all done", true);
-                callback(false);
-            });
+            self.setStatus("done", "all done", true);
+            process.nextTick(callback);
         }
         
         function workFail(step, err) {
@@ -152,9 +142,7 @@ function Item(request, readyCallback) {
             if (fds.r) fs.close(fds.r);
             if (fds.w) fs.close(fds.w);
             
-            process.nextTick(function() {
-                callback(false);
-            });
+            process.nextTick(callback);
         }
     }
     
@@ -243,11 +231,7 @@ function DeviceQueue(devId) {
     
     function work() {
         var item = queue.shift();
-        item.work(function(more) {
-            if (more) {
-                queue.push(item);
-            }
-            
+        item.work(function() {
             if (queue.length === 1) {
                 process.nextTick(work);
             }
