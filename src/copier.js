@@ -232,7 +232,7 @@ function DeviceQueue(devId) {
     function work() {
         var item = queue.shift();
         item.work(function() {
-            if (queue.length === 1) {
+            if (queue.length > 0) {
                 process.nextTick(work);
             }
         });
