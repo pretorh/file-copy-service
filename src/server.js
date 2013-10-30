@@ -45,8 +45,12 @@ function Server(port) {
             request.on("end", function() {
                 requestCopy(request, response, buf);
             });
-        } else if (isStat || isDetail) {
-            writeResponse(response, 500, {error: "method not implemented"});
+        } else if (isStat) {
+            var id = request.url.match(/^\/status\/([0-9a-fA-F]{8})$/)[1];
+            writeResponse(response, 200, copyService.status(id));
+        } else if (isDetail) {
+            var id = request.url.match(/^\/detail\/([0-9a-fA-F]{8})$/)[1];
+            writeResponse(response, 200, copyService.detailed(id));
         } else {
             writeResponse(response, 400, {
                 error: "bad request",
