@@ -127,6 +127,25 @@ function Item(request, readyCallback) {
                 } else {
                     fs.close(fds.w);
                     fds.w = null;
+                    process.nextTick(syncDone);
+                }
+            });
+        }
+                
+        function syncDone() {
+            if (self.info.move) {
+                move();
+            } else {
+                done();
+            }
+        }
+        
+        function move() {
+            self.setStatus("move", "remove source file");
+            fs.unlink(self.info.src.path, function(err) {
+                if (err) {
+                    workFail("move", err);
+                } else {
                     process.nextTick(done);
                 }
             });
@@ -188,12 +207,13 @@ function Item(request, readyCallback) {
                     path: request.dest,
                     device: destStat.dev
                 };
-                process.nextTick(validationDone);
+                process.nextTick(validationFinalize);
             }
         });
     }
     
-    function validationDone() {
+    function validationFinalize() {
+        self.info.move = request.move === true;
         self.setStatus("queue", "queued on device");
         readyCallback();
     }
