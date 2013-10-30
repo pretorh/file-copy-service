@@ -2,6 +2,7 @@ var cs = require("../"),
     http = require("http");
 
 var buf = new Buffer(1024*1024*64);
+require("fs").writeFileSync("./test-server.dat", buf);
 
 var server = cs.server.create(8080);
 server.start();
@@ -15,15 +16,24 @@ server.on("listen", function() {
     function(id) {
         console.log("request id: %s", id);
         
-        makeRequest("/status/" + id, "GET", null,
-        function(result) {
+        makeRequest("/status/" + id, "GET", null, function(result) {
             console.log(result);
-            makeRequest("/detail/" + id, "GET", null,
-            function(result) {
-                console.log(result);
-                
-                process.nextTick(server.stop);
-            });
+            waitDone();
+            
+            function waitDone() {
+                makeRequest("/status/" + id, "GET", null, function(result) {
+                    if (result.done) {
+                        makeRequest("/detail/" + id, "GET", null, function(detailed) {
+                            console.log(detailed);
+                            process.nextTick(server.stop);
+                        });
+                        require("fs").unlinkSync("./test-server.dat");
+                        require("fs").unlinkSync("./test-server-dest.dat");
+                    } else {
+                        setTimeout(waitDone, 250);
+                    }
+                });
+            }
         });
     });
 });
