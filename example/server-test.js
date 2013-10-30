@@ -15,16 +15,10 @@ server.on("listen", function() {
     function(id) {
         console.log("request id: %s", id);
         
-        makeRequest("/status/" + id, "GET", {
-            source: "./test-server.dat",
-            dest: "./test-server-dest.dat"
-        },
+        makeRequest("/status/" + id, "GET", null,
         function(result) {
             console.log(result);
-            makeRequest("/detail/" + id, "GET", {
-                source: "./test-server.dat",
-                dest: "./test-server-dest.dat"
-            },
+            makeRequest("/detail/" + id, "GET", null,
             function(result) {
                 console.log(result);
                 

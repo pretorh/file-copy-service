@@ -38,13 +38,7 @@ function Server(port) {
         var isDetail = request.method == "GET" && request.url.match(/^\/detail\/[0-9a-fA-F]{8}$/);
         
         if (isCopy) {
-            var buf = "";
-            request.on("data", function(chunk) {
-                buf += chunk.toString();
-            });
-            request.on("end", function() {
-                requestCopy(request, response, buf);
-            });
+            requestCopy(request, response);
         } else if (isStat) {
             var id = request.url.match(/^\/status\/([0-9a-fA-F]{8})$/)[1];
             writeResponse(response, 200, copyService.status(id));
@@ -60,9 +54,15 @@ function Server(port) {
         }
     }
     
-    function requestCopy(request, response, data) {
-        var result = copyService.copy(data);
-        writeResponse(response, 200, result);
+    function requestCopy(request, response) {
+        var data = "";
+        request.on("data", function(chunk) {
+            data += chunk.toString();
+        });
+        request.on("end", function() {
+            var newId = copyService.copy(JSON.parse(data));
+            writeResponse(response, 200, newId);
+        });
     }
     
     function writeResponse(response, status, data) {
