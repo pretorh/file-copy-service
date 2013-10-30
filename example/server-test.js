@@ -8,24 +8,25 @@ server.start();
 
 server.on("listen", function() {
     console.log("server started, requesting");
-    makeRequest({
+    makeRequest("/copy", {
         source: "./test-server.dat",
         dest: "./test-server-dest.dat"
     },
     function(id) {
         console.log("request id: %s", id);
+        process.nextTick(server.stop);
     });
 });
-server.on("request", function() {
-    console.log("got request, ending");
-    process.nextTick(server.stop);
+server.on("request", function(method, url) {
+    console.log("got request %s %s", method, url);
 });
 
-function makeRequest(data, callback) {
+function makeRequest(url, data, callback) {
     var req = http.request({
         hostname: "localhost",
         port: 8080,
-        method: "POST"
+        method: "POST",
+        path: url
     },
     function(response) {
         response.on("data", function(d) {

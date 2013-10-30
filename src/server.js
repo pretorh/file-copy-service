@@ -31,23 +31,41 @@ function Server(port) {
     }
     
     function requestHandler(request, response) {
-        self.emit("request");
+        self.emit("request", request.method, request.url);
         
-        var buf = "";
-        request.on("data", function(chunk) {
-            buf += chunk.toString();
-        });
-        request.on("end", function() {
-            requestCopy(request, response, buf);
-        });
+        var isCopy = request.method == "POST" && request.url == "/copy";
+        var isStat = request.method == "GET" && request.url.match(/^\/status\/[0-9a-fA-F]{8}$/);
+        var isDetail = request.method == "GET" && request.url.match(/^\/detail\/[0-9a-fA-F]{8}$/);
+        
+        if (isCopy) {
+            var buf = "";
+            request.on("data", function(chunk) {
+                buf += chunk.toString();
+            });
+            request.on("end", function() {
+                requestCopy(request, response, buf);
+            });
+        } else if (isStat || isDetail) {
+            writeResponse(response, 500, {error: "method not implemented"});
+        } else {
+            writeResponse(response, 400, {
+                error: "bad request",
+                method: request.method,
+                url: request.url
+            });
+        }
     }
     
     function requestCopy(request, response, data) {
         var result = copyService.copy(data);
-        response.writeHead(200, {
+        writeResponse(response, 200, result);
+    }
+    
+    function writeResponse(response, status, data) {
+        response.writeHead(status, {
             "Content-Type": "application/json"
         });
-        response.end(JSON.stringify(result));
+        response.end(JSON.stringify(data));
     }
     
     var server = null;
