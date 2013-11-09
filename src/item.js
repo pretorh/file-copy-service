@@ -175,9 +175,9 @@ function Item(request, readyCallback) {
         
         fs.stat(destDir, function(err, destStat) {
             if (err) {
-                fail(id, "dest stat failed", err);
+                self.fail("dest stat failed", err);
             } else if (!destStat.isDirectory()) {
-                fail(id, "dest's directory stat is not a directory", destDir);
+                self.fail("dest's directory stat is not a directory", destDir);
             } else {
                 self.info.dst = {
                     path: request.dest,
