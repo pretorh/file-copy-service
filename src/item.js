@@ -31,16 +31,20 @@ function Item(request, readyCallback) {
             self.info.detailed = null;
         }
     }
-    
+
     self.work = function(callback) {
         var fds = {
             r: null,
             w: null,
             totalRead: 0
         };
-        
-        process.nextTick(openRead);
-        
+
+        if (self.info.dst.device == self.info.src.device && self.info.move) {
+            process.nextTick(moveOnly);
+        } else {
+            process.nextTick(openRead);
+        }
+
         function openRead() {
             self.setStatus("copy", "copy file contents");
             fs.open(self.info.src.path, "r", function(err, fd) {
@@ -52,7 +56,7 @@ function Item(request, readyCallback) {
                 }
             });
         }
-        
+
         function openWrite() {
             fs.open(self.info.dst.path, "w", function(err, fd) {
                 if (err) {
@@ -63,7 +67,7 @@ function Item(request, readyCallback) {
                 }
             });
         }
-        
+
         function read() {
             var buf = new Buffer(BUFLEN);
             fs.read(fds.r, buf, 0, BUFLEN, null, function(err, bytesRead, buffer) {
@@ -78,7 +82,7 @@ function Item(request, readyCallback) {
                 }
             });
         }
-        
+
         function write(buffer, bytesRead) {
             fs.write(fds.w, buffer, 0, bytesRead, null, function(err, bytesWritten) {
                 if (err) {
@@ -94,7 +98,7 @@ function Item(request, readyCallback) {
                 }
             });
         }
-        
+
         function sync() {
             self.setStatus("sync", "sync destination file to disk");
             fs.fsync(fds.w, function(err) {
@@ -107,7 +111,7 @@ function Item(request, readyCallback) {
                 }
             });
         }
-                
+
         function syncDone() {
             if (self.info.move) {
                 move();
@@ -115,7 +119,7 @@ function Item(request, readyCallback) {
                 done();
             }
         }
-        
+
         function move() {
             self.setStatus("move", "remove source file");
             fs.unlink(self.info.src.path, function(err) {
@@ -126,21 +130,32 @@ function Item(request, readyCallback) {
                 }
             });
         }
-        
+
+        function moveOnly() {
+            self.setStatus("move", "move source file to destination file (same device)");
+            fs.rename(self.info.src.path, self.info.dst.path, function(err) {
+                if (err) {
+                    workFail("move", err);
+                } else {
+                    process.nextTick(done);
+                }
+            });
+        }
+
         function done() {
             self.setStatus("done", "all done", true);
             process.nextTick(callback);
         }
-        
+
         function workFail(step, err) {
             self.fail(step, err);
             if (fds.r) fs.close(fds.r);
             if (fds.w) fs.close(fds.w);
-            
+
             process.nextTick(callback);
         }
     }
-    
+
     function validateRequest() {
         if (!request || !request.source || !request.dest) {
             self.fail("bad request");
