@@ -1,9 +1,7 @@
-package FCS::Lib;
+package FCS::Client;
 use strict;
 use warnings;
 use Exporter qw(import);
-
-our @EXPORT_OK = qw(copyFile status);
 
 sub request {
     my ($request) = @_;
