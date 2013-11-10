@@ -4,7 +4,7 @@
   "description": "fire and forget (or retrieve) local file copying service",
   "main": "index.js",
   "scripts": {
-    "test": "node example/test.js"
+    "test": "vows"
   },
   "repository": {
     "type": "git",
@@ -20,5 +20,8 @@
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/pretorh/file-copy-service/issues"
+  },
+  "devDependencies": {
+    "vows": "~0.7.0"
   }
 }
