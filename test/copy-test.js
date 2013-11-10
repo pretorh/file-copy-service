@@ -1,7 +1,8 @@
 var vows = require("vows"),
     assert = require("assert"),
     fs = require("fs"),
-    cs = require("../");
+    cs = require("../"),
+    fsw = require("../src/fswrapper");
 
 function waitDone(info, callback) {
     var stat = info.service.status(info.id);
@@ -20,12 +21,48 @@ function FsMock() {
     self.calls = [];
 
     self.funcs = {
+        buflen: 10,
         diskSpace: function(path, callback) {
             self.calls.push({
                 func: "diskSpace",
                 path: path
             });
             callback(null, 1024 * 1024 * 1024);
+        },
+        openRead: function(path, fds, fail, next) {
+            self.calls.push({
+                func: "openRead",
+                path: path,
+                fdr: fds.r,
+                fdw: fds.w
+            });
+            fsw.openRead(path, fds, fail, next);
+        },
+        openWrite: function(path, fds, fail, next) {
+            self.calls.push({
+                func: "openWrite",
+                path: path,
+                fdr: fds.r,
+                fdw: fds.w
+            });
+            fsw.openWrite(path, fds, fail, next);
+        },
+        readBuffer: function(fds, info, buflen, fail, next) {
+            self.calls.push({
+                func: "readBuffer",
+                fdr: fds.r,
+                fdw: fds.w,
+                buflen: buflen
+            });
+            fsw.readBuffer(fds, info, buflen, fail, next);
+        },
+        writeBuffer: function(fds, buffer, bytesRead, callback) {
+            self.calls.push({
+                func: "writeBuffer",
+                fdr: fds.r,
+                fdw: fds.w
+            });
+            fsw.writeBuffer(fds, buffer, bytesRead, callback);
         }
     };
 }
@@ -34,7 +71,7 @@ vows.describe("copying a file").addBatch({
     "given a file to be copied": {
         topic: function() {
             var path = "./test-copy.dat";
-            fs.writeFileSync(path, new Buffer(16 * 1024 * 1024));
+            fs.writeFileSync(path, new Buffer(11));   // 1 byte more than 10 bytes
             return {
                 source: path,
                 dest: path + ".copy"
@@ -78,9 +115,46 @@ vows.describe("copying a file").addBatch({
                     topic: function(info) {
                         return info.mock;
                     },
+                    "are called": function(mock) {
+                        assert.equal(mock.calls.length, 7);
+                    },
                     "*diskSpace* is called first": function(mock) {
                         assert.equal(mock.calls[0].func, "diskSpace");
-                    }
+                    },
+                    "then *openRead* with the path of the file and no fds": function(mock) {
+                        assert.equal("openRead", mock.calls[1].func);
+                        assert.equal("./test-copy.dat", mock.calls[1].path);
+                        assert.isNull(mock.calls[1].fdr);
+                        assert.isNull(mock.calls[1].fdw);
+                    },
+                    "then *openWrite* with the path of the destination file and only fds.r": function(mock) {
+                        assert.equal("openWrite", mock.calls[2].func);
+                        assert.equal("./test-copy.dat.copy", mock.calls[2].path);
+                        assert.isNotNull(mock.calls[2].fdr);
+                        assert.isNull(mock.calls[2].fdw);
+                    },
+                    "*readBuffer*": function(mock) {
+                        assert.equal("readBuffer", mock.calls[3].func);
+                        assert.equal(mock.calls[2].fdr, mock.calls[3].fdr);
+                        assert.isNotNull(mock.calls[3].fdw);
+                        assert.equal(mock.funcs.buflen, mock.calls[3].buflen);
+                    },
+                    "*writeBuffer*": function(mock) {
+                        assert.equal("writeBuffer", mock.calls[4].func);
+                        assert.equal(mock.calls[2].fdr, mock.calls[4].fdr);
+                        assert.equal(mock.calls[3].fdw, mock.calls[4].fdw);
+                    },
+                    "*readBuffer* again": function(mock) {
+                        assert.equal("readBuffer", mock.calls[5].func);
+                        assert.equal(mock.calls[2].fdr, mock.calls[5].fdr);
+                        assert.isNotNull(mock.calls[5].fdw);
+                        assert.equal(mock.funcs.buflen, mock.calls[3].buflen);
+                    },
+                    "*writeBuffer* again": function(mock) {
+                        assert.equal("writeBuffer", mock.calls[6].func);
+                        assert.equal(mock.calls[2].fdr, mock.calls[6].fdr);
+                        assert.equal(mock.calls[3].fdw, mock.calls[6].fdw);
+                    },
                 }
             }
         }

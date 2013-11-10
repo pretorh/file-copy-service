@@ -4,8 +4,6 @@ var fs = require("fs"),
     defaultify = require("defaultify"),
     fsw = require("./fswrapper");
 
-const BUFLEN = 1024 * 1024 * 16;
-
 function Item(request, readyCallback) {
     var self = this;
     self.info = {
@@ -14,7 +12,7 @@ function Item(request, readyCallback) {
         done: false,
         history: []
     };
-    var funcs = defaultify(request.funcs, fsw, true).value;
+    var funcs = defaultify(request ? request.funcs : {}, fsw, true).value;
 
     self.fail = function(message, detailed) {
         self.setStatus("failed", message, true);
@@ -63,47 +61,22 @@ function Item(request, readyCallback) {
 
         function openRead() {
             self.setStatus("copy", "copy file contents");
-            fs.open(self.info.src.path, "r", function(err, fd) {
-                if (err) {
-                    workFail("open source", err);
-                } else {
-                    fds.r = fd;
-                    process.nextTick(openWrite);
-                }
-            });
+            funcs.openRead(self.info.src.path, fds, workFail, openWrite);
         }
 
         function openWrite() {
-            fs.open(self.info.dst.path, "w", function(err, fd) {
-                if (err) {
-                    workFail("open destination", err);
-                } else {
-                    fds.w = fd;
-                    process.nextTick(read);
-                }
-            });
+            funcs.openWrite(self.info.dst.path, fds, workFail, read);
         }
 
         function read() {
-            var buf = new Buffer(BUFLEN);
-            fs.read(fds.r, buf, 0, BUFLEN, null, function(err, bytesRead, buffer) {
-                if (err) {
-                    workFail("read", err);
-                } else {
-                    fds.totalRead += bytesRead;
-                    self.info.detailed = fds.totalRead + " bytes";
-                    process.nextTick(function() {
-                        write(buf, bytesRead);
-                    });
-                }
-            });
+            funcs.readBuffer(fds, self.info, funcs.buflen, workFail, write);
         }
 
         function write(buffer, bytesRead) {
-            fs.write(fds.w, buffer, 0, bytesRead, null, function(err, bytesWritten) {
+            funcs.writeBuffer(fds, buffer, bytesRead, function(err, bytesWritten) {
                 if (err) {
                     workFail("write", err);
-                } else if (bytesRead === BUFLEN) {
+                } else if (bytesRead === funcs.buflen) {
                     // read more
                     process.nextTick(read);
                 } else {
