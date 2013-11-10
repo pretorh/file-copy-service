@@ -1,7 +1,8 @@
 module.exports = Item;
 
 var fs = require("fs"),
-    spawn = require("child_process").spawn;
+    defaultify = require("defaultify"),
+    fsw = require("./fswrapper");
 
 const BUFLEN = 1024 * 1024 * 16;
 
@@ -13,13 +14,14 @@ function Item(request, readyCallback) {
         done: false,
         history: []
     };
-    
+    var funcs = defaultify(request.funcs, fsw, true).value;
+
     self.fail = function(message, detailed) {
         self.setStatus("failed", message, true);
         if (detailed)
             self.info.detailed = detailed;
     }
-    
+
     self.setStatus = function(status, message, isDone) {
         self.info.status = status;
         self.info.message = message;
@@ -48,7 +50,7 @@ function Item(request, readyCallback) {
 
         function prepareCopy() {
             self.setStatus("prepare", "get disk space");
-            getDiskfreeSpace(self.info.dst.dir, function(err, bytes) {
+            funcs.diskSpace(self.info.dst.dir, function(err, bytes) {
                 if (err) {
                     workFail("df", err);
                 } else if (bytes < self.info.src.size) {
@@ -175,7 +177,7 @@ function Item(request, readyCallback) {
             self.fail("bad request");
             return;
         }
-        
+
         fs.stat(request.source, function(err, srcStat) {
             if (err) {
                 self.fail("source stat failed", err);
@@ -191,17 +193,17 @@ function Item(request, readyCallback) {
             }
         });
     }
-    
+
     function validateDestination() {
         var re = /^(.*)\/.*$/;
         var destDir = request.dest.match(re);
         destDir = destDir ? destDir[1] : ".";
-        
+
         if (fs.existsSync(request.dest)) {
             self.fail("destination already exist");
             return;
         }
-        
+
         fs.stat(destDir, function(err, destStat) {
             if (err) {
                 self.fail("dest stat failed", err);
@@ -222,26 +224,6 @@ function Item(request, readyCallback) {
         self.info.move = request.move === true;
         self.setStatus("queue", "queued on device");
         readyCallback();
-    }
-
-    function getDiskfreeSpace(destDir, callback) {
-        var df = spawn("df", ["--output=avail", destDir]);
-        var stdout = "";
-        df.stdout.on("data", function(data) {
-            stdout += data.toString();
-        });
-        df.on("close", function(exitCode) {
-            if (exitCode) {
-                callback(new Error("df exited with code " + exitCode));
-            } else {
-                var matches = stdout.match(/^.*\n(\d+)\n$/);
-                if (!matches) {
-                    callback(new Error("invalid df output: " + stdout));
-                } else {
-                    callback(null, parseInt(matches[1]) * 1024);
-                }
-            }
-        });
     }
 
     self.setStatus("pending", "preparing");

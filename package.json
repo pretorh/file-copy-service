@@ -23,5 +23,8 @@
   },
   "devDependencies": {
     "vows": "~0.7.0"
+  },
+  "dependencies": {
+    "defaultify": "0.0.3"
   }
 }
