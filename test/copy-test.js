@@ -63,7 +63,16 @@ function FsMock() {
                 fdw: fds.w
             });
             fsw.writeBuffer(fds, buffer, bytesRead, callback);
-        }
+        },
+        closeFds: function(fds, ro) {
+            self.calls.push({
+                func: "closeFds",
+                fdr: fds.r,
+                fdw: fds.w,
+                ro: ro
+            });
+            fsw.closeFds(fds, ro);
+        },
     };
 }
 
@@ -116,7 +125,7 @@ vows.describe("copying a file").addBatch({
                         return info.mock;
                     },
                     "are called": function(mock) {
-                        assert.equal(mock.calls.length, 7);
+                        assert.equal(mock.calls.length, 9);
                     },
                     "*diskSpace* is called first": function(mock) {
                         assert.equal(mock.calls[0].func, "diskSpace");
@@ -155,6 +164,18 @@ vows.describe("copying a file").addBatch({
                         assert.equal(mock.calls[2].fdr, mock.calls[6].fdr);
                         assert.equal(mock.calls[3].fdw, mock.calls[6].fdw);
                     },
+                    "*closeFds* to close the write stream": function(mock) {
+                        assert.equal("closeFds", mock.calls[7].func);
+                        assert.equal(mock.calls[2].fdr, mock.calls[7].fdr);
+                        assert.equal(mock.calls[3].fdw, mock.calls[7].fdw);
+                        assert.equal(true, mock.calls[7].ro);
+                    },
+                    "*closeFds* again to close the read buffer": function(mock) {
+                        assert.equal("closeFds", mock.calls[8].func);
+                        assert.isNull(mock.calls[8].fdr);
+                        assert.equal(mock.calls[3].fdw, mock.calls[8].fdw);
+                        assert.equal(false, mock.calls[8].ro);
+                    }
                 }
             }
         }

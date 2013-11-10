@@ -4,7 +4,8 @@ module.exports = {
     openRead: openRead,
     openWrite: openWrite,
     readBuffer: readBuffer,
-    writeBuffer: writeBuffer
+    writeBuffer: writeBuffer,
+    closeFds: closeFds
 };
 
 var spawn = require("child_process").spawn,
@@ -69,4 +70,11 @@ function readBuffer(fds, info, buflen, fail, next) {
 
 function writeBuffer(fds, buffer, bytesRead, callback) {
     fs.write(fds.w, buffer, 0, bytesRead, null, callback);
+}
+
+function closeFds(fds, onylReadFd) {
+    if (fds.r) {
+        fs.close(fds.r);
+        fds.r = null;
+    }
 }

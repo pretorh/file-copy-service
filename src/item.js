@@ -81,8 +81,7 @@ function Item(request, readyCallback) {
                     process.nextTick(read);
                 } else {
                     // write done
-                    fs.close(fds.r);
-                    fds.r = null;
+                    funcs.closeFds(fds, true);
                     process.nextTick(sync);
                 }
             });
@@ -94,8 +93,7 @@ function Item(request, readyCallback) {
                 if (err) {
                     workFail("sync", err);
                 } else {
-                    fs.close(fds.w);
-                    fds.w = null;
+                    funcs.closeFds(fds, false);
                     process.nextTick(syncDone);
                 }
             });
@@ -138,9 +136,7 @@ function Item(request, readyCallback) {
 
         function workFail(step, err) {
             self.fail(step, err);
-            if (fds.r) fs.close(fds.r);
-            if (fds.w) fs.close(fds.w);
-
+            funcs.closeFds(fds);
             process.nextTick(callback);
         }
     }
