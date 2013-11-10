@@ -47,43 +47,39 @@ function Item(request, readyCallback) {
         }
 
         function prepareCopy() {
-            self.setStatus("prepare", "get disk space");
+            self.setStatus("prepare", "get disk space, open files");
             funcs.diskSpace(self.info.dst.dir, function(err, bytes) {
                 if (err) {
                     workFail("df", err);
                 } else if (bytes < self.info.src.size) {
                     workFail("not enough space on destination");
                 } else {
-                    process.nextTick(openRead);
+                    process.nextTick(openFiles);
                 }
             });
         }
 
-        function openRead() {
+        function openFiles() {
+            funcs.openRead(self.info.src.path, fds, workFail, function() {
+                funcs.openWrite(self.info.dst.path, fds, workFail, copyNextBlock);
+            });
+        }
+
+        function copyNextBlock() {
             self.setStatus("copy", "copy file contents");
-            funcs.openRead(self.info.src.path, fds, workFail, openWrite);
-        }
-
-        function openWrite() {
-            funcs.openWrite(self.info.dst.path, fds, workFail, read);
-        }
-
-        function read() {
-            funcs.readBuffer(fds, self.info, funcs.buflen, workFail, write);
-        }
-
-        function write(buffer, bytesRead) {
-            funcs.writeBuffer(fds, buffer, bytesRead, function(err, bytesWritten) {
-                if (err) {
-                    workFail("write", err);
-                } else if (bytesRead === funcs.buflen) {
-                    // read more
-                    process.nextTick(read);
-                } else {
-                    // write done
-                    funcs.closeFds(fds, true);
-                    process.nextTick(sync);
-                }
+            funcs.readBuffer(fds, self.info, funcs.buflen, workFail, function(buffer, bytesRead) {
+                funcs.writeBuffer(fds, buffer, bytesRead, function(err, bytesWritten) {
+                    if (err) {
+                        workFail("write", err);
+                    } else if (bytesRead === funcs.buflen) {
+                        // read more
+                        process.nextTick(copyNextBlock);
+                    } else {
+                        // write done
+                        funcs.closeFds(fds, true);
+                        process.nextTick(sync);
+                    }
+                });
             });
         }
 
