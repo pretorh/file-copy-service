@@ -3,6 +3,29 @@ use strict;
 use warnings;
 use Exporter qw(import);
 
+sub new {
+    my ($class, %args) = @_;
+    return bless {%args}, $class;
+}
+
+sub copy {
+    my ($self, $fromDir, $toDir, $file) = @_;
+    return copyFile($self->{url}, $fromDir, $toDir, $file, 0);
+}
+
+sub move {
+    my ($self, $fromDir, $toDir, $file) = @_;
+    return copyFile($self->{url}, $fromDir, $toDir, $file, 1);
+}
+
+sub status {
+    my ($self, $id) = @_;
+
+    my $request = HTTP::Request->new(GET => $self->{url} . "/status/" . $id);
+    $request->header("content-type", "application/json");
+    return request($request);
+}
+
 sub request {
     my ($request) = @_;
     my $agent = LWP::UserAgent->new;
@@ -18,7 +41,6 @@ sub request {
 }
 
 sub copyFile {
-    shift @_;
     my ($url, $fromDir, $toDir, $file, $move) = @_;
 
     my $fullFrom = $fromDir . "/" . $file;
@@ -29,15 +51,6 @@ sub copyFile {
     my $request = HTTP::Request->new(POST => $url . "/copy");
     $request->header("content-type", "application/json");
     $request->content($data);
-    return request($request);
-}
-
-sub status {
-    shift @_;
-    my ($url, $id) = @_;
-
-    my $request = HTTP::Request->new(GET => $url . "/status/" . $id);
-    $request->header("content-type", "application/json");
     return request($request);
 }
 
