@@ -1,6 +1,7 @@
 module.exports = Item;
 
-var fs = require("fs")
+var fs = require("fs"),
+    spawn = require("child_process").spawn;
 
 const BUFLEN = 1024 * 1024 * 16;
 
@@ -42,7 +43,20 @@ function Item(request, readyCallback) {
         if (self.info.dst.device == self.info.src.device && self.info.move) {
             process.nextTick(moveOnly);
         } else {
-            process.nextTick(openRead);
+            process.nextTick(prepareCopy);
+        }
+
+        function prepareCopy() {
+            self.setStatus("prepare", "get disk space");
+            getDiskfreeSpace(self.info.dst.dir, function(err, bytes) {
+                if (err) {
+                    workFail("df", err);
+                } else if (bytes < self.info.src.size) {
+                    workFail("not enough space on destination");
+                } else {
+                    process.nextTick(openRead);
+                }
+            });
         }
 
         function openRead() {
@@ -196,19 +210,40 @@ function Item(request, readyCallback) {
             } else {
                 self.info.dst = {
                     path: request.dest,
+                    dir: destDir,
                     device: destStat.dev
                 };
                 process.nextTick(validationFinalize);
             }
         });
     }
-    
+
     function validationFinalize() {
         self.info.move = request.move === true;
         self.setStatus("queue", "queued on device");
         readyCallback();
     }
-    
+
+    function getDiskfreeSpace(destDir, callback) {
+        var df = spawn("df", ["--output=avail", destDir]);
+        var stdout = "";
+        df.stdout.on("data", function(data) {
+            stdout += data.toString();
+        });
+        df.on("close", function(exitCode) {
+            if (exitCode) {
+                callback(new Error("df exited with code " + exitCode));
+            } else {
+                var matches = stdout.match(/^.*\n(\d+)\n$/);
+                if (!matches) {
+                    callback(new Error("invalid df output: " + stdout));
+                } else {
+                    callback(null, parseInt(matches[1]) * 1024);
+                }
+            }
+        });
+    }
+
     self.setStatus("pending", "preparing");
     process.nextTick(validateRequest);
 }
