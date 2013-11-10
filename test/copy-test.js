@@ -15,6 +15,21 @@ function waitDone(info, callback) {
     }
 }
 
+function FsMock() {
+    var self = this;
+    self.calls = [];
+
+    self.funcs = {
+        diskSpace: function(path, callback) {
+            self.calls.push({
+                func: "diskSpace",
+                path: path
+            });
+            callback(null, 1024 * 1024 * 1024);
+        }
+    };
+}
+
 vows.describe("copying a file").addBatch({
     "given a file to be copied": {
         topic: function() {
@@ -28,9 +43,12 @@ vows.describe("copying a file").addBatch({
         "when copy is called": {
             topic: function(item) {
                 var service = new cs.CopyService();
+                var mock = new FsMock();
+                item.funcs = mock.funcs;
                 var id = service.copy(item);
                 return {
                     service: service,
+                    mock: mock,
                     id: id,
                     item: item
                 };
@@ -55,6 +73,14 @@ vows.describe("copying a file").addBatch({
                 },
                 "the message is *completed*": function(e, info) {
                     assert.equal("all done", info.status.message);
+                },
+                "and the mocked function": {
+                    topic: function(info) {
+                        return info.mock;
+                    },
+                    "*diskSpace* is called first": function(mock) {
+                        assert.equal(mock.calls[0].func, "diskSpace");
+                    }
                 }
             }
         }
