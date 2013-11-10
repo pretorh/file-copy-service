@@ -45,20 +45,23 @@ function DeviceQueue(devId) {
     self = this;
     var requestNumber = 0;
     var queue = [];
-    
+    var current = null;
+
     self.enqueue = function(item) {
         item.info.deviceRequestNumber = requestNumber++;
         queue.push(item);
-        if (queue.length === 1) {
+        if (queue.length === 1 && current === null) {
             process.nextTick(work);
         }
     }
-    
+
     function work() {
-        var item = queue.shift();
-        item.work(function() {
+        current = queue.shift();
+        current.work(function() {
             if (queue.length > 0) {
                 process.nextTick(work);
+            } else {
+                current = null;
             }
         });
     }
