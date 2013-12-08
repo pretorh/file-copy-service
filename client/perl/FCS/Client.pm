@@ -2,6 +2,8 @@ package FCS::Client;
 use strict;
 use warnings;
 use Exporter qw(import);
+use LWP::UserAgent;
+use JSON;
 
 sub new {
     my ($class, %args) = @_;
