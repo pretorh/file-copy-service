@@ -31,10 +31,6 @@ function Server(port) {
     }
 
     function requestHandler(request, response) {
-        if (server == null) {
-            writeResponse(response, 404, "server is going down");
-            return;
-        }
         self.emit("request", request.method, request.url);
 
         var isCopy = request.method == "POST" && request.url == "/copy";
@@ -43,7 +39,11 @@ function Server(port) {
         var isShutdown = request.method == "GET" && request.url.match(/^\/shutdown$/);
 
         if (isCopy) {
-            requestCopy(request, response);
+            if (server == null) {
+                writeResponse(response, 400, "server is going down");
+            } else {
+                requestCopy(request, response);
+            }
         } else if (isStat) {
             var id = request.url.match(/^\/status\/([0-9a-fA-F]{8})$/)[1];
             writeResponse(response, 200, copyService.status(id));
