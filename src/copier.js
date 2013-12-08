@@ -22,15 +22,23 @@ function CopyService() {
     }
     
     self.status = function(id) {
-        return {
-            done: items[id].info.done,
-            status: items[id].info.status,
-            message: items[id].info.message
-        };
+        if (items[id]) {
+            return {
+                done: items[id].info.done,
+                status: items[id].info.status,
+                message: items[id].info.message
+            };
+        } else {
+            return "invalid id";
+        }
     }
     
     self.detailed = function(id) {
-        return items[id].info;
+        if (items[id]) {
+            return items[id].info;
+        } else {
+            return "invalid id";
+        }
     }
 }
 
