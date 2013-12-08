@@ -31,6 +31,10 @@ function Server(port) {
     }
 
     function requestHandler(request, response) {
+        if (server == null) {
+            writeResponse(response, 404, "server is going down");
+            return;
+        }
         self.emit("request", request.method, request.url);
 
         var isCopy = request.method == "POST" && request.url == "/copy";
@@ -48,7 +52,10 @@ function Server(port) {
             writeResponse(response, 200, copyService.detailed(id));
         } else if (isShutdown) {
             writeResponse(response, 200, "ok");
-            server.close();
+            server.close(function() {
+                console.log("ended");
+            });
+            server = null;
             console.log("http server ended");
         } else {
             writeResponse(response, 400, {
@@ -72,7 +79,8 @@ function Server(port) {
 
     function writeResponse(response, status, data) {
         response.writeHead(status, {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Connection": "close"
         });
         response.end(JSON.stringify(data));
     }
