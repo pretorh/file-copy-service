@@ -1,6 +1,6 @@
 {
   "name": "file-copy-service",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "fire and forget (or retrieve) local file copying service",
   "main": "index.js",
   "scripts": {
