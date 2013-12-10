@@ -37,12 +37,13 @@ function Server(port) {
         var isStat = request.method == "GET" && request.url.match(/^\/status\/[0-9a-fA-F]{8}$/);
         var isDetail = request.method == "GET" && request.url.match(/^\/detail\/[0-9a-fA-F]{8}$/);
         var isShutdown = request.method == "GET" && request.url.match(/^\/shutdown$/);
+        var isGracefulShutdown = request.method == "GET" && request.url.match(/^\/shutdown\/graceful$/);
 
         if (isCopy) {
-            if (server == null) {
-                writeResponse(response, 400, "server is going down");
-            } else {
+            if (acceptCommands) {
                 requestCopy(request, response);
+            } else {
+                writeResponse(response, 400, "server is not accepting any more commands");
             }
         } else if (isStat) {
             var id = request.url.match(/^\/status\/([0-9a-fA-F]{8})$/)[1];
@@ -57,6 +58,10 @@ function Server(port) {
             });
             server = null;
             console.log("http server ended");
+        } else if (isGracefulShutdown) {
+            writeResponse(response, 200, "ok");
+            acceptCommands = false;
+            console.log("starting graceful shutdown");
         } else {
             writeResponse(response, 400, {
                 error: "bad request",
@@ -86,6 +91,7 @@ function Server(port) {
     }
 
     var server = null;
+    var acceptCommands = false;
     var copyService = new CopyService();
 
     events.EventEmitter.call(self);
