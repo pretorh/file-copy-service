@@ -59,12 +59,24 @@ function Server(port) {
             writeResponse(response, 200, "ok");
             acceptCommands = false;
             console.log("starting graceful shutdown");
+            process.nextTick(gracefulShutdown);
         } else {
             writeResponse(response, 400, {
                 error: "bad request",
                 method: request.method,
                 url: request.url
             });
+        }
+    }
+
+    function gracefulShutdown() {
+        var pendingCount = copyService.pending();
+        if (pendingCount > 0) {
+            console.log("graceful shutdown: " + pendingCount + " pending items");
+            setTimeout(gracefulShutdown, 15000);
+        } else {
+            console.log("pending items depleted, stopping server");
+            setTimeout(self.stop, 1000);
         }
     }
 
@@ -88,7 +100,7 @@ function Server(port) {
     }
 
     var server = null;
-    var acceptCommands = false;
+    var acceptCommands = true;
     var copyService = new CopyService();
 
     events.EventEmitter.call(self);

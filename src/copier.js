@@ -40,6 +40,16 @@ function CopyService() {
             return "invalid id";
         }
     }
+
+    self.pending = function() {
+        var count = 0;
+        for (var id in items) {
+            if (!items[id].info.done) {
+                ++count;
+            }
+        }
+        return count;
+    }
 }
 
 function createId() {
