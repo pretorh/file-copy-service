@@ -53,10 +53,7 @@ function Server(port) {
             writeResponse(response, 200, copyService.detailed(id));
         } else if (isShutdown) {
             writeResponse(response, 200, "ok");
-            server.close(function() {
-                console.log("ended");
-            });
-            server = null;
+            self.stop();
             console.log("http server ended");
         } else if (isGracefulShutdown) {
             writeResponse(response, 200, "ok");
